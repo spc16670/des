@@ -3,26 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-static const char HEX_PLAIN_MSG[] = "0123456789ABCDEF"; 
-/*
- *                               0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F 
- *                              0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111
- */
-static const char BIN_PLAIN_MSG[] = "0000000100100011010001010110011110001001101010111100110111101111"; 
-
-static const char HEX_DES_KEY[] = "133457799BBCDFF1"; 
-/*
- * DES operates on the 64-bit blocks using key sizes of 56- bits. 
- * The keys are actually stored as being 64 bits long, but every 8th bit in the key is not used 
- * (i.e. bits numbered 8, 16, 24, 32, 40, 48, 56, and 64). 
- * However, we will nevertheless number the bits from 1 to 64, going left to right, in the following calculations. 
- * But, as you will see, the eight bits just mentioned get eliminated when we create subkeys 
- *
- *                            1   3    3   4    5   7    7   9    9   B    B   C    D   F    F   1
- *                           00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001 
- */
-static const char BIN_DES_KEY[] = "0001001100110100010101110111100110011011101111001101111111110001"; 
-//const char BIN_DES_KEY[56] = "00010010011010010101101111001001101101111011011111111000"; 
 
 /*
  * The 64-bit key is permuted according to the following table PC-1. 
@@ -203,7 +183,7 @@ static char IP_REVERSED[64] =
    33,   1,   41,   9,  49,  17,  57,  25
 };
 
-// --------------------------- KEY GENERATION ---------------------------------
+// ------------------------ ROUND KEYS GENERATION -----------------------------
 
 
 void perform_key_permutation(char keys[16][56]) 
@@ -224,27 +204,18 @@ void perform_key_permutation(char keys[16][56])
 };
 
 
-//void print_shifted_keys()
-//{
-//  int i;
-//  for(i=0;i<16;i++)
-//  {
-//    printf("%d \n%.*s\n",i,56,shifted_keys[i]);
-//  }
-//};
-
 /*
  * Note only 56 bits of the original key appear in the permuted key 
  * i.e. the table does not specify the position for the 8th, 16th, 32nd, 40th, 48th, 56th and 64th bit.  
  */
-void perform_first_permutation(char *left_des_key,char *right_des_key) 
+void perform_first_permutation(char *left_des_key,char *right_des_key,char *bin_des_key) 
 {
   char permuted_key[56];
   int i;
   for(i=0;i<56;i++) 
   { 
     int permutedPosition = PC_1[i];
-    permuted_key[i] = BIN_DES_KEY[permutedPosition-1];
+    permuted_key[i] = bin_des_key[permutedPosition-1];
   };
   strncpy(left_des_key,permuted_key,28);
   strncpy(right_des_key,permuted_key+28,28);
@@ -253,11 +224,11 @@ void perform_first_permutation(char *left_des_key,char *right_des_key)
 /*
  * Populates the static array PERMUTED_KEYS with the 16 round keys. 
  */
-void get_keys()
+void generate_keys(char *bin_des_key)
 { 
   char bin_left_des_key[28];
   char bin_right_des_key[28];
-  perform_first_permutation(bin_left_des_key,bin_right_des_key);
+  perform_first_permutation(bin_left_des_key,bin_right_des_key,bin_des_key);
   printf("First key permutation: %s %s\n",bin_left_des_key,bin_right_des_key);
   char shifted_keys[16][56];
   int i;
@@ -344,19 +315,29 @@ int binary_to_int(int n)
   return decimal;
 }
 
+void print_permuted_keys()
+{
+  int i;
+  for(i=0;i<16;i++)
+  {
+    printf("%d \n%.*s\n",i,48,PERMUTED_KEYS[i]);
+  }
+};
+
+
 // ------------------------------ ENCRYPTION ----------------------------------
 
 /*
  * Performs initial permutation using IP table.
  */
-void perform_ip(char *ip_bin_msg) 
+void perform_ip(char *binchars,char *ip_bin_msg) 
 {
   char permuted_msg[64];
   int i;
   for(i=0;i<64;i++) 
   { 
     int permutedPosition = IP[i];
-    permuted_msg[i] = BIN_PLAIN_MSG[permutedPosition-1];
+    permuted_msg[i] = binchars[permutedPosition-1];
   };
   strncpy(ip_bin_msg,permuted_msg,64);
 };
@@ -419,15 +400,12 @@ void f(char *fOutput, char *last_right, int round)
     printf("SBOX LOOKUP FOR CHUNK %d (%.*s) is row %d col %d -> %d(int) = %.*s(bin)\n",i+1,6,sixBitChunk,row,cols,sValInt,4,sValBinChar);
   }
   printf("SBOXed KEY IS %.*s\n",32,sBoxed);
- 
+  // permute SBOXed key using P table
   for(i=0;i<32;i++) 
   { 
     int permutedPosition = P[i];
     fOutput[i] = sBoxed[permutedPosition-1];
-  };
- 
-  // permute SBOXed key using P table
-  
+  }; 
 }; 
 
 
@@ -449,7 +427,7 @@ void f(char *fOutput, char *last_right, int round)
  *    the previous step with the calculation f 
  */
 
-void crypt(char *final_chunk)
+void crypt(char *binchars, char *final_chunk)
 {
 
   char left[32];
@@ -462,15 +440,15 @@ void crypt(char *final_chunk)
     // if it is the first iteration use the initial permutation data
     if(i==0)
     { 
-      char ip_bin_msg[64];
+      char ip_binchars[64];
       // this performs initial permutation 
-      perform_ip(ip_bin_msg);
-      printf("Initial data permutation: %.*s\n",64,ip_bin_msg);
+      perform_ip(binchars,ip_binchars);
+      printf("Initial data permutation: %.*s\n",64,ip_binchars);
       char l0[32];
-      strncpy(l0,ip_bin_msg,32);
+      strncpy(l0,ip_binchars,32);
       printf("L0 %.*s\n",32,l0);
       char r0[32];
-      strncpy(r0,ip_bin_msg+32,32);
+      strncpy(r0,ip_binchars+32,32);
       printf("R0 %.*s\n",32,r0);
       // left chunk of data of the first iteration is the right chunk of data affter initial permutation 
       char l1[32];
@@ -523,23 +501,114 @@ void crypt(char *final_chunk)
     int permutedPosition = IP_REVERSED[i];
     final_chunk[i] = concatenated_chunk[permutedPosition-1];
   };
-}
+};
 
 
 // ----------------------------------------------------------------------------
 
+/*
+ * This is evisioned to work with characters that are 1 byte only.
+ */
+void char_to_binchars(unsigned char c,unsigned char *binchars)
+{
+  unsigned char mask = 1; // Bit mask
+  char bits[8];
+  int i;
+  for (i=0;i<8;i++) 
+  {
+    // Mask each bit in the byte and store it
+    bits[(8 - (i+1))] = (c & (mask << i)) != 0;
+  };
+  for (i=0;i<8;i++) 
+  {
+    binchars[i] = (char)(((int)'0')+bits[i]);
+  }
+};
 
+/* Function to reverse arr[] from start to end*/
+void reverse_keys()
+{
+  int start = 0;
+  int end = 15;
+  char temp[48];
+  while(start < end)
+  {
+    strncpy(temp,PERMUTED_KEYS[start],48);
+    strncpy(PERMUTED_KEYS[start],PERMUTED_KEYS[end],48);
+    strncpy(PERMUTED_KEYS[end],temp,48);
+    start++;
+    end--;
+  }   
+}
 
-
-
-int main(void) 
-{  
-  printf("Plain msg in hex %s\n",HEX_PLAIN_MSG);
-  printf("64(56) bit key: %s\n",BIN_DES_KEY);
-  get_keys();
+void encrypt_chunk(char *text, char *key, char *ciphered)
+{ 
+  generate_keys(key);
   char encoded_chunk[64];
-  crypt(encoded_chunk);
-  printf("Final chunk as bits: %.*s\n",64,encoded_chunk); 
+  crypt(text,encoded_chunk);
+  strncpy(ciphered,encoded_chunk,64);
+}
+
+void decrypt_chunk(char *ciphered, char *key, char *text)
+{ 
+  generate_keys(key);
+  reverse_keys(); 
+  char decoded_chunk[64];
+  crypt(ciphered,decoded_chunk);
+  strncpy(text,decoded_chunk,64);
+}
+
+void encrypt()
+{
+  char ciphered[64];
+  encrypt(bin_plain_msg,bin_des_key,ciphered);
+  printf("Ciphered bitchars: %.*s\n",64,ciphered); 
+}
+
+void decrypt()
+{
+  char decoded[64];
+  decrypt(ciphered,bin_des_key,decoded);
+  printf("Deciphered bitchars: %.*s\n",64,decoded); 
+}
+
+
+/*
+ * ============================================================================
+ * ============================================================================
+ * ============================================================================
+ */
+int main(void) 
+{
+  char hex_des_key[] = "133457799BBCDFF1"; 
+  /*
+   * DES operates on the 64-bit blocks using key sizes of 56- bits. 
+   * The keys are actually stored as being 64 bits long, but every 8th bit in the key is not used 
+   * (i.e. bits numbered 8, 16, 24, 32, 40, 48, 56, and 64). 
+   * However, we will nevertheless number the bits from 1 to 64, going left to right, in the following calculations. 
+   * But, as you will see, the eight bits just mentioned get eliminated when we create subkeys 
+   *
+   *                   1   3    3   4    5   7    7   9    9   B    B   C    D   F    F   1
+   *                  00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001 
+   */
+  char bin_des_key[] = "0001001100110100010101110111100110011011101111001101111111110001"; 
+
+
+  //char hex_plain_msg[] = "0123456789ABCDEF"; 
+  /*
+   *                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F 
+   *                 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111
+   */
+  char bin_plain_msg[] = "0000000100100011010001010110011110001001101010111100110111101111"; 
+
+//  unsigned char binchars[8];
+//  unsigned char c = 'C';
+//  char_to_binchars(c,binchars);
+//  printf("Bits: %.*s\n",8,binchars);
+
+  printf("Plain msg in hex %s\n",hex_des_key);
+  printf("64(56) bit key: %s\n",bin_des_key);
+
   return 0;
 };
 
