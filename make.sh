@@ -1,2 +1,2 @@
 APP=des
-gcc -Wall $APP.c -o $APP.bin
+gcc -Wall $APP.c -lm -o $APP.bin

@@ -634,14 +634,7 @@ void crypt(char *msg, char *plain)
     int permutedPosition = IP_REVERSED[i];
     final_chunk[i] = concatenated_chunk[permutedPosition-1];
   };
-
-  //char debug_msg[124];
-  //int l = sprintf(debug_msg,"FINAL CHUNK : %.*s",64,final_chunk); 
-  //print_debug(debug_msg,l);
-  //printf("FINAL CHUNK : %.*s\n",64,final_chunk);
-  printf("-");
-   
-  //binchars64_to_char8(final_chunk,plain);
+  printf("\r"); // needed to ensure the same results in cygwin and rhel envs
   binchars64_to_char8(final_chunk,plain);
 };
 
@@ -686,10 +679,10 @@ int main(void)
    */
 
   char key[8] = "12345678";
-  printf("64(56) bit key: %s\n",key);
+  printf("64(56) bit key: %.*s\n",8,key);
 
   char msg[8] = "abcdefgh";
-  printf("Plain msg %s\n",msg);
+  printf("Plain msg: %.*s\n",8,msg);
   
   char result[8];
   crypt_chunk(msg,key,'e',result);
