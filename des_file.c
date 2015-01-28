@@ -3,7 +3,7 @@
 /*
  * @TODO Get data from a file and produce ciphertext file.
  */
-void file_read()
+void file_cipher()
 {
   int counter = 0;
   char buffer[8];

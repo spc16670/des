@@ -30,8 +30,7 @@ void print_permuted_keys();
 #ifndef FUNCTIONS_FILE_INCLUDED
 #define FUNCTIONS_FILE_INCLUDED
 
-void file_read();
-void file_write();
+void file_cipher();
 
 #endif
 

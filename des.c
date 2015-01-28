@@ -554,24 +554,23 @@ int main(void)
    * (i.e. bits numbered 8, 16, 24, 32, 40, 48, 56, and 64). 
    */
 
-  char key[8] = "12345678";
+  char key[8] = "S0mEKee!";
   printf("64(56) bit key: %.*s\n",8,key);
 
-  char msg[8] = "abcdefgh";
-  printf("Plain msg: %.*s\n",8,msg);
+  char msg[8] = "8byteMSG";
+  printf("Plain msg:      %.*s\n",8,msg);
   
   char result[8];
   crypt_chunk(msg,key,'e',result);
 
-  printf("Ciphered text: %.*s\n",8,result); 
+  printf("Ciphered msg:   %.*s\n",8,result); 
 
   char decrypted[8];
   crypt_chunk(result,key,'d',decrypted);
 
-  printf("Decrypted text %.*s\n",8,decrypted);
+  printf("Decrypted msg:  %.*s\n",8,decrypted);
  
-  file_read();
-  file_write();
+  //file_cipher();
   return 0;
 };
 
