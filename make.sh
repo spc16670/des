@@ -1,2 +1,1 @@
-APP=des
-gcc -Wall $APP.c -lm -o $APP.bin
+gcc -Wall des.c des_utils.c des_file.c -lm -o des.bin
